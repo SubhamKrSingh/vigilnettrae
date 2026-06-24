@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlmodel
+networkx
+scikit-learn
+numpy
+pandas
+faker
+python-dotenv
+httpx
