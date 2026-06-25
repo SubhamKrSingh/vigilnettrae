@@ -7,7 +7,20 @@ import { motion } from 'framer-motion';
 const CampaignAlertCard = ({ campaign, selected }) => {
   const navigate = useNavigate();
   const { selectCampaign } = useVigilNetStore();
-  const isType7 = campaign.campaign_type.includes('Type 7');
+  
+  // Get the full type string safely
+  const typeLabel = campaign.campaign_type
+    || campaign.type_name
+    || campaign.campaign_type_name
+    || `Type ${campaign.type_code}`
+    || 'Unknown type';
+
+  const typeCode = campaign.type_code
+    || campaign.campaign_type_code
+    || campaign.id?.match(/\d+/)?.[0]
+    || '?';
+
+  const isType7 = typeCode === 7 || typeLabel.includes('Type 7');
 
   const handleInvestigate = () => {
     selectCampaign(campaign);
@@ -35,11 +48,12 @@ const CampaignAlertCard = ({ campaign, selected }) => {
             <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
               isType7 ? 'bg-blue/20 text-blue' : 'bg-purple/20 text-purple'
             }`}>
-              {campaign.campaign_type.split(' ')[0]}
+              TYPE {typeCode}
             </span>
             {isType7 && <span className="w-2 h-2 bg-blue rounded-full animate-pulse" />}
           </div>
-          <h3 className="font-bold text-lg">{campaign.location}</h3>
+          <h3 className="font-bold text-lg">{typeLabel}</h3>
+          <p className="text-muted text-sm">{campaign.location}</p>
         </div>
         <ConfidenceGauge value={campaign.confidence} />
       </div>

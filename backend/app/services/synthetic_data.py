@@ -72,7 +72,8 @@ def seed_campaigns(session):
     campaigns_data = [
         {
             "id": "CAMP-2024-TN-0047",
-            "campaign_type": "Type 7 Multi-Agent Digital Arrest",
+            "type_code": 7,
+            "campaign_type": "Type 7: Multi-Agent Digital Arrest",
             "name": "Chennai–Coimbatore Digital Arrest Campaign",
             "location": "Chennai–Coimbatore corridor",
             "center_lat": 11.0168,
@@ -96,7 +97,8 @@ def seed_campaigns(session):
         },
         {
             "id": "CAMP-2024-MH-0012",
-            "campaign_type": "Type 3 SIM Swap UPI Fraud",
+            "type_code": 3,
+            "campaign_type": "Type 3: SIM Swap UPI Fraud",
             "name": "Mumbai SIM Swap Network",
             "location": "Mumbai",
             "center_lat": 19.0760,
@@ -115,7 +117,8 @@ def seed_campaigns(session):
         },
         {
             "id": "CAMP-2024-DL-0089",
-            "campaign_type": "Type 12 Investment Scam",
+            "type_code": 12,
+            "campaign_type": "Type 12: Investment Scam",
             "name": "Delhi NCR Investment Ring",
             "location": "Delhi NCR",
             "center_lat": 28.6139,
@@ -142,6 +145,7 @@ def seed_campaigns(session):
     for data in campaigns_data:
         campaign = Campaign(
             id=data["id"],
+            type_code=data["type_code"],
             campaign_type=data["campaign_type"],
             name=data["name"],
             location=data["location"],

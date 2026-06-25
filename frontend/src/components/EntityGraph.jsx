@@ -1,12 +1,36 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { motion } from 'framer-motion';
 
+
+function getNodeColor(d) {
+  switch (d.type) {
+    case 'cluster': return '#7F77DD';   // purple — hub
+    case 'domain':  return '#D85A30';   // coral — fake portals
+    case 'account': return '#E09B20';   // amber — mule accounts
+    case 'sim':     return '#1DB87A';   // teal — SIM cards
+    default:        return '#888780';   // grey fallback
+  }
+}
+
+
+function getNodeRadius(d) {
+  switch (d.type) {
+    case 'cluster': return 20;
+    case 'domain':  return 10;
+    case 'account': return 7;
+    case 'sim':     return 4;
+    default:        return 5;
+  }
+}
+
+
 const EntityGraph = ({ graphData }) => {
-  const svgRef = useRef();
+  const svgRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    if (!graphData || !graphData.nodes || !graphData.edges) return;
+    if (!graphData || !graphData.nodes || !graphData.links || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -14,117 +38,171 @@ const EntityGraph = ({ graphData }) => {
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
 
+    setDimensions({ width, height });
+
+    const nodes = [...graphData.nodes];
+    const links = [...graphData.links];
+
+    // Initialise all nodes at random off-screen positions for the fly-in effect
+    nodes.forEach(d => {
+      if (d.type !== 'cluster') {
+        d.x = (Math.random() - 0.5) * width * 2;
+        d.y = (Math.random() - 0.5) * height * 2;
+      } else {
+        // Hub starts at centre
+        d.x = width / 2;
+        d.y = height / 2;
+        d.fx = width / 2;  // fix hub at centre for first 2 seconds
+        d.fy = height / 2;
+      }
+    });
+
+    // Unfix hub after 2 seconds so it settles naturally
+    setTimeout(() => {
+      const hubNode = nodes.find(n => n.type === 'cluster');
+      if (hubNode) {
+        hubNode.fx = null;
+        hubNode.fy = null;
+      }
+    }, 2000);
+
     const g = svg.append('g');
 
-    const colorScale = {
-      SIM: '#1DB87A',
-      ACCOUNT: '#E09B20',
-      DOMAIN: '#D85A30',
-      CLUSTER: '#7F77DD',
-    };
+    const nodeCount = nodes.length;
+    const chargeStrength = nodeCount > 100 ? -120 : nodeCount > 50 ? -150 : -200;
+    const linkDistance = nodeCount > 100 ? 50 : 70;
 
-    const shapeScale = {
-      SIM: 'circle',
-      ACCOUNT: 'square',
-      DOMAIN: 'diamond',
-      CLUSTER: 'circle',
-    };
-
-    const sizeScale = (type) => {
-      switch (type) {
-        case 'CLUSTER': return 20;
-        case 'SIM': return 5;
-        case 'ACCOUNT': return 6;
-        case 'DOMAIN': return 7;
-        default: return 5;
-      }
-    };
-
-    const simulation = d3.forceSimulation(graphData.nodes)
-      .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(50))
-      .force('charge', d3.forceManyBody().strength(-100))
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links)
+        .id(d => d.id)
+        .distance(d => {
+          // Hub links pull tightly; proximity edges are loose
+          const isHub = (d.target && d.target.type === 'cluster') || (d.source && d.source.type === 'cluster');
+          return isHub ? linkDistance : linkDistance * 1.8;
+        })
+        .strength(d => {
+          const isHub = (d.target && d.target.type === 'cluster') || (d.source && d.source.type === 'cluster');
+          return isHub ? 0.8 : 0.2;
+        })
+      )
+      .force('charge', d3.forceManyBody().strength(chargeStrength))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => sizeScale(d.type) + 5));
+      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 3))
+      .force('radial', d3.forceRadial(d => {
+        // Hub stays at centre. Domains close in. Accounts mid-ring. SIMs outer ring.
+        switch (d.type) {
+          case 'cluster': return 0;
+          case 'domain':  return Math.min(width, height) * 0.12;
+          case 'account': return Math.min(width, height) * 0.22;
+          case 'sim':     return Math.min(width, height) * 0.35;
+          default:        return Math.min(width, height) * 0.30;
+        }
+      }, width / 2, height / 2).strength(0.35))
+      .alpha(1)
+      .alphaDecay(0.015);
 
-    const link = g.append('g')
+
+    const linkElements = g.append('g')
       .selectAll('line')
-      .data(graphData.edges)
+      .data(links)
       .join('line')
       .attr('stroke', '#252830')
-      .attr('stroke-width', 1);
+      .attr('stroke-width', d => d.weight * 1.5);
 
-    const node = g.append('g')
-      .selectAll('g')
-      .data(graphData.nodes)
-      .join('g')
-      .call(d3.drag()
-        .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
-          d.fx = d.x;
-          d.fy = d.y;
-        })
-        .on('drag', (event, d) => {
-          d.fx = event.x;
-          d.fy = event.y;
-        })
-        .on('end', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
-        }));
 
-    node.append('circle')
-      .attr('r', d => sizeScale(d.type))
-      .attr('fill', d => colorScale[d.type] || '#888780')
-      .attr('stroke', '#252830')
-      .attr('stroke-width', 1);
+    const nodeElements = g.append('g')
+      .selectAll('circle')
+      .data(nodes)
+      .join('circle')
+      .attr('r', d => getNodeRadius(d))
+      .attr('fill', d => getNodeColor(d))
+      .attr('stroke', d => d.type === 'cluster' ? '#B0A8F8' : 'rgba(255,255,255,0.15)')
+      .attr('stroke-width', d => d.type === 'cluster' ? 2 : 0.5);
+
 
     const tooltip = d3.select('body').append('div')
-      .attr('class', 'bg-card border border-border rounded-lg p-3 text-sm pointer-events-none absolute z-50')
+      .style('position', 'absolute')
+      .style('background', '#191C24')
+      .style('border', '1px solid #252830')
+      .style('border-radius', '8px')
+      .style('padding', '8px 12px')
+      .style('font-size', '12px')
+      .style('color', '#E8E6E0')
+      .style('pointer-events', 'none')
       .style('opacity', 0);
 
-    node
+    nodeElements
       .on('mouseover', (event, d) => {
-        tooltip.style('opacity', 1);
-        let content = `<strong>${d.type}</strong>`;
-        if (d.carrier) content += `<br/>Carrier: ${d.carrier}`;
-        if (d.bank) content += `<br/>Bank: ${d.bank}`;
-        if (d.url) content += `<br/>Domain: ${d.url}`;
-        tooltip.html(content);
+        const content = d.type === 'sim' ? `SIM · ${d.carrier}`
+          : d.type === 'account' ? `Account · ${d.bank}`
+          : d.type === 'domain' ? `Domain · ${d.url}`
+          : 'Campaign hub';
+        tooltip.style('opacity', 1).html(content);
       })
-      .on('mousemove', (event) => {
-        tooltip
-          .style('left', (event.pageX + 10) + 'px')
-          .style('top', (event.pageY - 10) + 'px');
+      .on('mousemove', event => {
+        tooltip.style('left', (event.pageX + 12) + 'px')
+          .style('top', (event.pageY - 20) + 'px');
       })
-      .on('mouseout', () => {
-        tooltip.style('opacity', 0);
-      });
+      .on('mouseout', () => tooltip.style('opacity', 0));
+
+
+    // Legend
+    const legendData = [
+      { label: 'SIM cards', color: '#1DB87A', shape: 'circle', r: 4 },
+      { label: 'Mule accounts', color: '#E09B20', shape: 'circle', r: 7 },
+      { label: 'Fake domains', color: '#D85A30', shape: 'circle', r: 10 },
+      { label: 'Campaign hub', color: '#7F77DD', shape: 'circle', r: 13 },
+    ];
+
+    const legend = svg.append('g')
+      .attr('transform', `translate(${width - 160}, ${height - 110})`);
+
+    legendData.forEach((item, i) => {
+      const row = legend.append('g').attr('transform', `translate(0, ${i * 24})`);
+      row.append('circle')
+        .attr('r', item.r / 1.5)
+        .attr('cx', 8).attr('cy', 0)
+        .attr('fill', item.color)
+        .attr('opacity', 0.9);
+      row.append('text')
+        .attr('x', 20).attr('y', 4)
+        .attr('fill', '#888780')
+        .attr('font-size', '11px')
+        .text(item.label);
+    });
+
 
     simulation.on('tick', () => {
-      link
+      linkElements
         .attr('x1', d => d.source.x)
         .attr('y1', d => d.source.y)
         .attr('x2', d => d.target.x)
         .attr('y2', d => d.target.y);
 
-      node.attr('transform', d => `translate(${d.x},${d.y})`);
+      nodeElements
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
     });
 
+
     return () => {
+      simulation.stop();
       tooltip.remove();
     };
   }, [graphData]);
+
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full h-full bg-card rounded-2xl border border-border overflow-hidden"
+      className="w-full h-full rounded-2xl border border-border overflow-hidden"
+      style={{ background: '#13151C' }}
     >
       <svg ref={svgRef} className="w-full h-full" />
     </motion.div>
   );
 };
+
 
 export default EntityGraph;

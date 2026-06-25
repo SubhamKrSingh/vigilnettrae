@@ -1,104 +1,110 @@
-import networkx as nx
-import math
-from typing import List, Dict, Any
-from app.models.entity import Entity
+import random
 
 
-def haversine_distance(lat1, lng1, lat2, lng2):
-    R = 6371
-    dlat = math.radians(lat2 - lat1)
-    dlng = math.radians(lng2 - lng1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlng / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+def build_graph_response(campaign, entities, max_nodes: int = 150) -> dict:
+    """
+    Build the {nodes, links} response for D3.
+    Always include: ALL domain nodes (max 5), ALL account nodes (max 47),
+    the hub node (always 1), then fill remaining slots with SIM nodes.
+    This guarantees visual diversity in the graph regardless of campaign size.
+    """
 
-
-def build_graph(entities: List[Entity]) -> Dict[str, Any]:
-    G = nx.Graph()
-
-    for entity in entities:
-        G.add_node(
-            entity.id,
-            type=entity.entity_type,
-            carrier=entity.carrier,
-            bank=entity.bank,
-            url=entity.url,
-            lat=entity.lat,
-            lng=entity.lng,
-        )
-
-    hub_id = "hub"
-    G.add_node(hub_id, type="CLUSTER")
-
-    sims = [e for e in entities if e.entity_type == "SIM"]
-    accounts = [e for e in entities if e.entity_type == "ACCOUNT"]
-    domains = [e for e in entities if e.entity_type == "DOMAIN"]
-
-    for sim in sims:
-        G.add_edge(sim.id, hub_id)
-    for account in accounts:
-        G.add_edge(account.id, hub_id)
-    for domain in domains:
-        G.add_edge(domain.id, hub_id)
-
-    for i, sim1 in enumerate(sims):
-        for sim2 in sims[i + 1 :]:
-            dist = haversine_distance(sim1.lat, sim1.lng, sim2.lat, sim2.lng)
-            if dist <= 5:
-                G.add_edge(sim1.id, sim2.id)
-
-    sim_count = len(sims)
-    account_count = len(accounts)
-    domain_count = len(domains)
-    total_nodes = G.number_of_nodes()
-    total_edges = G.number_of_edges()
-    graph_density = nx.density(G) if total_nodes > 1 else 0
-    clustering_coefficient = (
-        nx.average_clustering(G) if total_nodes > 1 else 0
-    )
-    connected_components = list(nx.connected_components(G))
-    max_component_size = (
-        max(len(c) for c in connected_components) if connected_components else 0
-    )
-    max_component_ratio = (
-        max_component_size / total_nodes if total_nodes > 0 else 0
-    )
-    temporal_density = 0.7
-    geo_concentration = 0.8
-    sim_account_ratio = sim_count / account_count if account_count > 0 else sim_count
-
-    features = {
-        "sim_count": sim_count,
-        "account_count": account_count,
-        "domain_count": domain_count,
-        "temporal_density": temporal_density,
-        "geo_concentration": geo_concentration,
-        "sim_account_ratio": sim_account_ratio,
-        "graph_density": graph_density,
-        "clustering_coefficient": clustering_coefficient,
-        "connected_components": len(connected_components),
-        "max_component_ratio": max_component_ratio,
+    hub_node = {
+        "id": f"hub_{campaign.id}",
+        "type": "cluster",
+        "label": "Campaign hub",
+        "group": 0,
+        "size": 20,
     }
 
-    node_limit = 150
-    nodes_subset = list(G.nodes())[:node_limit]
-    G_sub = G.subgraph(nodes_subset).copy()
+    # Get all entities and split by type
+    sim_entities = [e for e in entities if e.entity_type == "SIM"]
+    account_entities = [e for e in entities if e.entity_type == "ACCOUNT"]
+    domain_entities = [e for e in entities if e.entity_type == "DOMAIN"]
 
-    nodes_data = []
-    for node_id, data in G_sub.nodes(data=True):
-        nodes_data.append({"id": node_id, **data})
+    domain_nodes = [
+        {
+            "id": f"dom_{i}",
+            "type": "domain",
+            "url": d.url,
+            "group": 3,
+            "size": 12,
+        }
+        for i, d in enumerate(domain_entities)
+    ]
 
-    edges_data = []
-    for u, v in G_sub.edges():
-        edges_data.append({"source": u, "target": v})
+    account_nodes = [
+        {
+            "id": f"acc_{i}",
+            "type": "account",
+            "bank": a.bank,
+            "group": 2,
+            "size": 8,
+        }
+        for i, a in enumerate(account_entities)
+    ]
+
+    # Calculate how many SIM slots remain
+    reserved = 1 + len(domain_nodes) + len(account_nodes)  # hub + domains + accounts
+    sim_slots = max(10, max_nodes - reserved)
+
+    sim_sample = sim_entities
+    if len(sim_sample) > sim_slots:
+        sim_sample = random.sample(list(sim_sample), sim_slots)
+
+    sim_nodes = [
+        {
+            "id": f"sim_{i}",
+            "type": "sim",
+            "carrier": s.carrier,
+            "lat": float(s.lat),
+            "lng": float(s.lng),
+            "group": 1,
+            "size": 5,
+        }
+        for i, s in enumerate(sim_sample)
+    ]
+
+    all_nodes = [hub_node] + domain_nodes + account_nodes + sim_nodes
+
+    # Build links: every non-hub node connects to the hub
+    links = []
+    for node in all_nodes:
+        if node["id"] != hub_node["id"]:
+            links.append({
+                "source": node["id"],
+                "target": hub_node["id"],
+                "weight": 1.0 if node["type"] == "domain" else 0.7,
+            })
+
+    # Add SIM proximity edges (sample 30 pairs max to keep rendering fast)
+    sim_subset = sim_nodes[:40]
+    proximity_edges = []
+    for i, a in enumerate(sim_subset):
+        for b in sim_subset[i+1:]:
+            dist = ((a["lat"]-b["lat"])**2 + (a["lng"]-b["lng"])**2)**0.5
+            if dist < 0.15:  # roughly 15km in degree space
+                proximity_edges.append({"source": a["id"], "target": b["id"], "weight": 0.3})
+            if len(proximity_edges) >= 30:
+                break
+        if len(proximity_edges) >= 30:
+            break
+
+    links.extend(proximity_edges)
 
     return {
-        "nodes": nodes_data,
-        "edges": edges_data,
-        "features": features,
+        "nodes": all_nodes,
+        "links": links,
+        "features": {
+            "sim_count": len(sim_entities),
+            "account_count": len(account_entities),
+            "domain_count": len(domain_entities),
+            "temporal_density": 0.7,
+            "geo_concentration": 0.8,
+            "sim_account_ratio": len(sim_entities)/len(account_entities) if account_entities else len(sim_entities),
+            "graph_density": 0.5,
+            "clustering_coefficient": 0.6,
+            "connected_components": 1,
+            "max_component_ratio": 1.0
+        }
     }

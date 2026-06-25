@@ -8,7 +8,8 @@ class Campaign(SQLModel, table=True):
     __tablename__ = "campaigns"
 
     id: str = Field(primary_key=True)
-    campaign_type: str
+    campaign_type: str  # full string e.g. "Type 7: Multi-Agent Digital Arrest"
+    type_code: int
     name: Optional[str] = None
     location: str
     center_lat: float
@@ -22,3 +23,4 @@ class Campaign(SQLModel, table=True):
     timeline: List[Dict[str, Any]] = Field(default_factory=list, sa_type=JSON)
     features: Optional[Dict[str, Any]] = Field(default=None, sa_type=JSON)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    status: str = "active"
