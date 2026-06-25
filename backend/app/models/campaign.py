@@ -15,7 +15,7 @@ class Campaign(SQLModel, table=True):
     center_lat: float
     center_lng: float
     radius_km: float
-    confidence: Optional[float] = None
+    confidence: float = Field(default=0.75)
     sim_count: int
     account_count: int
     domain_count: int

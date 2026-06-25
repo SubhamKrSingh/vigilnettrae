@@ -1,20 +1,43 @@
 import React, { useState } from 'react';
 import useVigilNetStore from '../store/useVigilNetStore';
-import { Shield, AlertTriangle, FileText, ArrowRight } from 'lucide-react';
+import { Shield, AlertTriangle, FileText, ArrowRight, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
 const IntelPackage = () => {
   const { intelPackage, selectedCampaign } = useVigilNetStore();
-  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatched, setDispatched] = useState({i4c: false, trai: false, banks: false});
 
-  const handleDispatch = () => {
-    setIsDispatching(true);
-    toast.loading('Dispatching intervention...', { id: 'dispatch' });
-    setTimeout(() => {
-      setIsDispatching(false);
-      toast.success('Package sent! 3 banks notified, TRAI flagged, 400 citizens protected, ₹60 crore protected!', { id: 'dispatch', duration: 5000 });
-    }, 2000);
+  const handleDispatchI4C = async () => {
+    toast.loading('Transmitting to I4C portal...', { id: 'i4c' });
+    await new Promise(r => setTimeout(r, 2000));
+    toast.success(
+      `Intelligence package dispatched to I4C\nCase ref: ${intelPackage.id}`,
+      { id: 'i4c', duration: 5000 }
+    );
+    setDispatched(d => ({...d, i4c: true}));
+  };
+
+  const handleFlagTRAI = async () => {
+    toast.loading('Sending SIM range flag to TRAI...', { id: 'trai' });
+    await new Promise(r => setTimeout(r, 1500));
+    toast.success(
+      `TRAI notified – ${intelPackage.sim_ranges?.length || 0} SIM ranges flagged for monitoring`,
+      { id: 'trai', duration: 5000 }
+    );
+    setDispatched(d => ({...d, trai: true}));
+  };
+
+  const handleAlertBanks = async () => {
+    toast.loading('Alerting partner banks...', { id: 'banks' });
+    await new Promise(r => setTimeout(r, 1800));
+    const banks = ['HDFC', 'ICICI', 'Axis', 'SBI', 'Kotak'];
+    const relevant = banks.slice(0, Math.floor(Math.random() * 3) + 2);
+    toast.success(
+      `${relevant.join(', ')} notified – mule account clusters flagged`,
+      { id: 'banks', duration: 5000 }
+    );
+    setDispatched(d => ({...d, banks: true}));
   };
 
   if (!intelPackage) {
@@ -31,16 +54,6 @@ const IntelPackage = () => {
         <div>
           <h2 className="text-2xl font-bold">Intelligence Package</h2>
           <p className="text-muted">{intelPackage.id}</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleDispatch}
-            disabled={isDispatching}
-            className="bg-coral hover:bg-coral/90 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2"
-          >
-            <Shield className="w-5 h-5" />
-            Dispatch Intervention
-          </button>
         </div>
       </div>
 
@@ -122,24 +135,42 @@ const IntelPackage = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <button className="bg-card border border-border rounded-2xl p-5 text-center">
-          <div className="w-12 h-12 bg-blue/20 text-blue rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Shield className="w-6 h-6" />
-        </div>
-        <p className="font-medium">Dispatch to I4C</p>
-      </button>
-        <button className="bg-card border border-border rounded-2xl p-5 text-center">
-          <div className="w-12 h-12 bg-purple/20 text-purple rounded-xl flex items-center justify-center mx-auto mb-3">
-          <AlertTriangle className="w-6 h-6" />
-        </div>
-        <p className="font-medium">Flag to TRAI</p>
-      </button>
-        <button className="bg-card border border-border rounded-2xl p-5 text-center">
-          <div className="w-12 h-12 bg-teal/20 text-teal rounded-xl flex items-center justify-center mx-auto mb-3">
-          <ArrowRight className="w-6 h-6" />
-        </div>
-        <p className="font-medium">Alert Banks</p>
-      </button>
+        <button
+            onClick={handleDispatchI4C}
+            disabled={dispatched.i4c}
+            className={`flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all ${
+                dispatched.i4c
+                    ? 'bg-teal/10 border-teal text-teal'
+                    : 'bg-card border-border hover:border-blue cursor-pointer'
+            }`}
+        >
+          {dispatched.i4c ? <CheckCircle className="w-6 h-6" /> : <Shield className="w-6 h-6" />}
+          <p className="font-medium">{dispatched.i4c ? 'Dispatched ✓' : 'Dispatch to I4C'}</p>
+        </button>
+        <button
+            onClick={handleFlagTRAI}
+            disabled={dispatched.trai}
+            className={`flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all ${
+                dispatched.trai
+                    ? 'bg-amber/10 border-amber text-amber'
+                    : 'bg-card border-border hover:border-amber cursor-pointer'
+            }`}
+        >
+          {dispatched.trai ? <CheckCircle className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
+          <p className="font-medium">{dispatched.trai ? 'Flagged ✓' : 'Flag to TRAI'}</p>
+        </button>
+        <button
+            onClick={handleAlertBanks}
+            disabled={dispatched.banks}
+            className={`flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all ${
+                dispatched.banks
+                    ? 'bg-teal/10 border-teal text-teal'
+                    : 'bg-card border-border hover:border-teal cursor-pointer'
+            }`}
+        >
+          {dispatched.banks ? <CheckCircle className="w-6 h-6" /> : <ArrowRight className="w-6 h-6" />}
+          <p className="font-medium">{dispatched.banks ? 'Banks Alerted ✓' : 'Alert Banks'}</p>
+        </button>
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-6">

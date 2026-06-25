@@ -118,7 +118,7 @@ def seed_campaigns(session):
         {
             "id": "CAMP-2024-DL-0089",
             "type_code": 12,
-            "campaign_type": "Type 12: Investment Scam",
+            "campaign_type": "Type 12: Investment Scam Network",
             "name": "Delhi NCR Investment Ring",
             "location": "Delhi NCR",
             "center_lat": 28.6139,
