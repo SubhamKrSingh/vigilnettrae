@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_db_and_tables, get_session
 from app.services.synthetic_data import seed_campaigns
-from app.services.graph_builder import build_graph
+from app.services.graph_builder import build_graph_response
 from app.services.fingerprint_engine import compute_confidence_score
 from sqlmodel import Session, select
 from app.models.campaign import Campaign
@@ -35,7 +35,7 @@ def on_startup():
     campaigns_list = session.exec(select(Campaign)).all()
     for campaign in campaigns_list:
         entities = session.exec(select(Entity).where(Entity.campaign_id == campaign.id)).all()
-        graph_data = build_graph(entities)
+        graph_data = build_graph_response(campaign, entities)
         features = graph_data["features"]
         campaign.features = features
         confidence = compute_confidence_score(features, campaign.campaign_type)
