@@ -161,15 +161,6 @@ const EntityGraph = ({ graphData }) => {
             .attr('class', 'node-item')
             .style('cursor', 'pointer');
 
-        // Mid ring (slightly smaller, more visible)
-        nodeElements.append('circle')
-            .attr('class', 'mid-ring')
-            .attr('r', d => getNodeRadius(d) * 1.7)
-            .attr('fill', 'none')
-            .attr('stroke', d => getNodeColor(d))
-            .attr('stroke-width', 0.5)
-            .attr('opacity', 0);
-
         // Core dot
         nodeElements.append('circle')
             .attr('class', 'core')
@@ -192,12 +183,6 @@ const EntityGraph = ({ graphData }) => {
             el.select('.core')
                 .transition().delay(delay).duration(300)
                 .attr('opacity', 1);
-
-            // Mid ring blooms outward
-            el.select('.mid-ring')
-                .transition().delay(delay + 50).duration(500)
-                .attr('opacity', 0.4)
-                .attr('r', d => getNodeRadius(d) * 2.2);
         });
 
 
@@ -205,17 +190,15 @@ const EntityGraph = ({ graphData }) => {
         function pulseHub() {
             const hubEl = nodeElements.filter(d => d.type === 'cluster');
 
-            hubEl.select('.mid-ring')
+            hubEl.select('.core')
                 .transition()
                 .duration(1800)
                 .ease(d3.easeSinInOut)
-                .attr('opacity', 0.35)
-                .attr('r', 44)
+                .attr('r', 24)
                 .transition()
                 .duration(1800)
                 .ease(d3.easeSinInOut)
-                .attr('opacity', 0.08)
-                .attr('r', 30)
+                .attr('r', 20)
                 .on('end', pulseHub);   // loop forever
         }
 
