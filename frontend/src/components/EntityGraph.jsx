@@ -70,32 +70,7 @@ const EntityGraph = ({ graphData }) => {
         }
 
 
-        // --- STEP 2: SVG GLOW FILTERS ---
-        const defs = svg.append('defs');
-
-        // Glow filter factory
-        const makeGlow = (id, color, blur = 4, opacity = 0.8) => {
-            const f = defs.append('filter')
-                .attr('id', id)
-                .attr('x', '-50%').attr('y', '-50%')
-                .attr('width', '200%').attr('height', '200%');
-            f.append('feGaussianBlur')
-                .attr('in', 'SourceGraphic')
-                .attr('stdDeviation', blur)
-                .attr('result', 'blur');
-            const merge = f.append('feMerge');
-            merge.append('feMergeNode').attr('in', 'blur');
-            merge.append('feMergeNode').attr('in', 'SourceGraphic');
-        };
-
-        makeGlow('glow-hub',     '#7F77DD', 8,  0.9);
-        makeGlow('glow-sim',     '#1DB87A', 3,  0.7);
-        makeGlow('glow-account', '#E09B20', 4,  0.7);
-        makeGlow('glow-domain',  '#D85A30', 5,  0.8);
-        makeGlow('glow-edge',    '#FFFFFF', 1,  0.3);
-
-
-        // --- STEP 3: BOOT SCAN LINE ---
+        // --- STEP 2: BOOT SCAN LINE ---
         const scanLine = svg.append('line')
             .attr('x1', 0).attr('x2', W)
             .attr('y1', 0).attr('y2', 0)
@@ -109,7 +84,7 @@ const EntityGraph = ({ graphData }) => {
             .on('end', () => scanLine.remove());
 
 
-        // --- STEP 4: PREPARE DATA & SIMULATION ---
+        // --- STEP 3: PREPARE DATA & SIMULATION ---
         // Deep-copy nodes and links so D3 mutation doesn't affect store
         const nodes = graphData.nodes.map(d => ({ ...d }));
         const links = graphData.links.map(d => ({ ...d }));
@@ -153,7 +128,7 @@ const EntityGraph = ({ graphData }) => {
             .velocityDecay(0.35);
 
 
-        // --- STEP 5: DRAW EDGES WITH BEAM ANIMATION ---
+        // --- STEP 4: DRAW EDGES ---
         const linkGroup = svg.append('g').attr('class', 'links');
 
         const linkElements = linkGroup.selectAll('line')
@@ -167,7 +142,6 @@ const EntityGraph = ({ graphData }) => {
                 return 'rgba(29,184,122,0.15)';
             })
             .attr('stroke-width', 0.8)
-            .attr('filter', 'url(#glow-edge)')
             // Start invisible — the tick handler will set positions
             .attr('opacity', 0);
 
@@ -178,7 +152,7 @@ const EntityGraph = ({ graphData }) => {
             .attr('opacity', 1);
 
 
-        // --- STEP 6: NODE GROUP WITH OBSIDIAN APPEARANCE ---
+        // --- STEP 5: NODE GROUP ---
         const nodeGroup = svg.append('g').attr('class', 'nodes');
 
         const nodeElements = nodeGroup.selectAll('g.node-item')
@@ -186,18 +160,6 @@ const EntityGraph = ({ graphData }) => {
             .enter().append('g')
             .attr('class', 'node-item')
             .style('cursor', 'pointer');
-
-        // Outer glow ring (large, faint, animated)
-        nodeElements.append('circle')
-            .attr('class', 'glow-ring')
-            .attr('r', d => getNodeRadius(d) * 3)
-            .attr('fill', 'none')
-            .attr('stroke', d => getNodeColor(d))
-            .attr('stroke-width', 1)
-            .attr('opacity', 0)
-            .attr('filter', d => `url(#glow-${d.type === 'cluster' ? 'hub' :
-                                               d.type === 'sim'     ? 'sim' :
-                                               d.type === 'account' ? 'account' : 'domain'})`);
 
         // Mid ring (slightly smaller, more visible)
         nodeElements.append('circle')
@@ -215,8 +177,7 @@ const EntityGraph = ({ graphData }) => {
             .attr('fill', d => getNodeColor(d))
             .attr('stroke', '#0A0B0F')
             .attr('stroke-width', d => d.type === 'cluster' ? 2 : 1)
-            .attr('opacity', 0)
-            .attr('filter', d => d.type === 'cluster' ? 'url(#glow-hub)' : null);
+            .attr('opacity', 0);
 
         // Animate each node appearing with stagger based on distance from hub
         const typeOrder = { cluster: 0, domain: 1, account: 2, sim: 3 };
@@ -237,30 +198,24 @@ const EntityGraph = ({ graphData }) => {
                 .transition().delay(delay + 50).duration(500)
                 .attr('opacity', 0.4)
                 .attr('r', d => getNodeRadius(d) * 2.2);
-
-            // Glow ring expands and fades
-            el.select('.glow-ring')
-                .transition().delay(delay).duration(800)
-                .attr('opacity', 0.15)
-                .attr('r', d => getNodeRadius(d) * 4);
         });
 
 
-        // --- STEP 7: HUB BREATHING PULSE ---
+        // --- STEP 6: HUB BREATHING PULSE ---
         function pulseHub() {
             const hubEl = nodeElements.filter(d => d.type === 'cluster');
 
-            hubEl.select('.glow-ring')
+            hubEl.select('.mid-ring')
                 .transition()
                 .duration(1800)
                 .ease(d3.easeSinInOut)
                 .attr('opacity', 0.35)
-                .attr('r', 52)
+                .attr('r', 44)
                 .transition()
                 .duration(1800)
                 .ease(d3.easeSinInOut)
                 .attr('opacity', 0.08)
-                .attr('r', 36)
+                .attr('r', 30)
                 .on('end', pulseHub);   // loop forever
         }
 
@@ -268,7 +223,7 @@ const EntityGraph = ({ graphData }) => {
         setTimeout(pulseHub, baseDelay + 600);
 
 
-        // --- STEP 8: TICK HANDLER ---
+        // --- STEP 7: TICK HANDLER ---
         simulation.on('tick', () => {
             linkElements
                 .attr('x1', d => d.source.x)
@@ -281,7 +236,7 @@ const EntityGraph = ({ graphData }) => {
         });
 
 
-        // --- STEP 9: TOOLTIP AND DRAG ---
+        // --- STEP 8: TOOLTIP AND DRAG ---
         const tooltip = d3.select('body').append('div')
             .style('position', 'absolute')
             .style('background', '#191C24')
@@ -295,13 +250,10 @@ const EntityGraph = ({ graphData }) => {
 
         nodeElements
             .on('mouseover', (event, d) => {
-                // Brighten glow on hover
+                // Brighten on hover
                 d3.select(event.currentTarget).select('.core')
                     .transition().duration(150)
                     .attr('r', getNodeRadius(d) * 1.4);
-                d3.select(event.currentTarget).select('.glow-ring')
-                    .transition().duration(150)
-                    .attr('opacity', 0.5);
                 // Show tooltip
                 tooltip.style('opacity', 1)
                     .html(getTooltipContent(d));
@@ -315,9 +267,6 @@ const EntityGraph = ({ graphData }) => {
                 d3.select(event.currentTarget).select('.core')
                     .transition().duration(200)
                     .attr('r', getNodeRadius(d));
-                d3.select(event.currentTarget).select('.glow-ring')
-                    .transition().duration(200)
-                    .attr('opacity', d.type === 'cluster' ? 0.15 : 0.12);
                 tooltip.style('opacity', 0);
             })
             .call(d3.drag()
@@ -335,7 +284,7 @@ const EntityGraph = ({ graphData }) => {
             );
 
 
-        // --- STEP 10: LEGEND ---
+        // --- STEP 9: LEGEND ---
         const legendData = [
             { label: 'SIM cards', color: '#1DB87A', r: 4 },
             { label: 'Mule accounts', color: '#E09B20', r: 7 },
