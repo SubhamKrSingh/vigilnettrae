@@ -19,3 +19,32 @@ body {
   70%  { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
   100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
 }
+
+@keyframes slideInRight {
+  from { transform: translateX(60px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.campaign-card-live {
+  animation: slideInRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes detectionFlash {
+  0% { opacity: 1; }
+  40% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

@@ -23,4 +23,7 @@ class Campaign(SQLModel, table=True):
     timeline: List[Dict[str, Any]] = Field(default_factory=list, sa_type=JSON)
     features: Optional[Dict[str, Any]] = Field(default=None, sa_type=JSON)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    detected_at: Optional[str] = None
     status: str = "active"
+    is_demo: bool = Field(default=False)
+    entity_total: int = Field(default=0)
