@@ -11,12 +11,12 @@ import { MapProvider } from './context/MapContext';
 function App() {
   return (
     <Router>
-      <div className="flex h-screen overflow-hidden bg-bg">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Navbar />
-          <div className="flex-1 overflow-auto">
-            <MapProvider>
+      <MapProvider>
+        <div className="flex h-screen overflow-hidden bg-bg">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Navbar />
+            <div className="flex-1 overflow-auto">
               <Toaster
                 position="top-center"
                 toastOptions={{
@@ -38,10 +38,10 @@ function App() {
                 <Route path="/investigation" element={<Investigation />} />
                 <Route path="/packages" element={<IntelPackage />} />
               </Routes>
-            </MapProvider>
+            </div>
           </div>
         </div>
-      </div>
+      </MapProvider>
     </Router>
   );
 }
