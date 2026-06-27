@@ -1,6 +1,7 @@
 import React from 'react';
-import { Shield, Map, Search, FileText } from 'lucide-react';
+import { Map, Search, FileText } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
+import logo from '../../logo.png'; // Adjust if your Sidebar is in a different folder
 
 const Sidebar = () => {
   const location = useLocation();
@@ -14,9 +15,14 @@ const Sidebar = () => {
   return (
     <div className="w-[260px] bg-surface border-r border-border flex flex-col h-screen sticky top-0">
       <div className="p-6 border-b border-border flex items-center gap-3">
-        <div className="w-10 h-10 bg-blue rounded-xl flex items-center justify-center">
-          <Shield className="w-6 h-6 text-white" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center">
+          <img
+            src={logo}
+            alt="VigilNet Logo"
+            className="w-full h-full object-contain"
+          />
         </div>
+
         <span className="text-xl font-bold">VigilNet</span>
       </div>
 
@@ -24,6 +30,7 @@ const Sidebar = () => {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+
           return (
             <Link
               key={item.path}
